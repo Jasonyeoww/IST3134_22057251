@@ -1,6 +1,6 @@
-# 🛫 US Airline On-Time Performance using Hadoop MapReduce
+# 🛫 US Airline On-Time Performance: A Comparison of Hadoop MapReduce and Spark Approaches
 
-This project ranks U.S. domestic airlines based on their on-time departure performance using historical flight data (2022). The analysis was performed using Hadoop Streaming on AWS, applying a MapReduce pipeline to process millions of flight records.
+This project analyzes and ranks U.S. domestic airlines based on their on-time departure performance using historical flight data from 2022. The analysis is conducted using two approaches: a Hadoop MapReduce pipeline (via Hadoop Streaming on AWS EC2) and a non-MapReduce method using Apache Spark. The goal is to compare both methods in terms of implementation and output while processing millions of flight records.
 
 ---
 
@@ -20,7 +20,7 @@ Due to GitHub's 25MB file limit, the cleaned dataset is hosted on Dropbox:
 
 ---
 
-## 🪜 Step-by-Step Instructions to Reproduce the Results
+## 🪜 Full Execution Guide (Hadoop MapReduce Approach)
 
 ### 1️⃣ Download the dataset on EC2
 
@@ -108,4 +108,48 @@ hadoop jar /home/hadoop/hadoop-3.3.6/share/hadoop/tools/lib/hadoop-streaming-3.3
 ### 5️⃣ View the Final Results (Sorted)
 ```bash
 hdfs dfs -cat /user/hadoop/output_ontime/part-00000 | sort -t $'\t' -k4 -n
+```
+---
+
+## 🪜 Full Execution Guide (Apache Spark Approach)
+
+### 1️⃣ Import Required Libraries
+```bash
+from pyspark.sql.functions import col, when, count, sum as spark_sum, round
+```
+
+### 2️⃣ Load Dataset from HDFS
+```bash
+df = spark.read.csv("hdfs:///user/hadoop/flightdata/all_cleaned_flights.csv", header=True, inferSchema=True)
+```
+
+### 3️⃣ Filter Out Cancelled Flights
+```bash
+df_filtered = df.filter(col("Cancelled") != 1)
+```
+
+### 4️⃣ Create Delay Flag Column
+```bash
+df_flagged = df_filtered.withColumn("delay_flag", when(col("DepDel15") == 1, 1).otherwise(0))
+```
+
+### 5️⃣ Aggregate Delay Stats by Airline
+```bash
+agg_df = df_flagged.groupBy("Airline_Name").agg(
+    count("*").alias("total_flights"),
+    spark_sum("delay_flag").alias("delayed_flights")
+)
+```
+
+### 6️⃣ Calculate Delay Percentage and Sort
+```bash
+final_df = agg_df.withColumn("delay_percentage",
+                             round((col("delayed_flights") / col("total_flights")) * 100, 2)) \
+                 .orderBy("delay_percentage")
+```
+
+### 7️⃣ Show Final Results
+```bash
+final_df.select("Airline_Name", "total_flights", "delayed_flights", "delay_percentage") \
+    .show(truncate=False)
 ```
