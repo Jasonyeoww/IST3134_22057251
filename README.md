@@ -1,6 +1,6 @@
 # 🛫 US Airline On-Time Performance using Hadoop MapReduce
 
-This project ranks U.S. domestic airlines based on their on-time departure performance using historical flight data (2018–2022). The analysis was performed using Hadoop Streaming on AWS, applying a MapReduce pipeline to process millions of flight records.
+This project ranks U.S. domestic airlines based on their on-time departure performance using historical flight data (2022). The analysis was performed using Hadoop Streaming on AWS, applying a MapReduce pipeline to process millions of flight records.
 
 ---
 
