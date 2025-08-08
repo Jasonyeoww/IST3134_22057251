@@ -48,3 +48,10 @@ To generate the cleaned dataset (`all_cleaned_flights.csv`), we used the followi
    - Merges all chunked CSVs (`cleaned_chunk_*.csv`) into one final cleaned dataset: `all_cleaned_flights.csv`
 
 ---
+## 👥 Group Members
+
+| Name                    | Student ID  |
+|-------------------------|-------------|
+| Jason Yeow Jun Kit      | 22057251    |
+| Joselyn Chin Shi Min    | 22049126    |
+| Leong Zheng Xuan        | 21026976    |
