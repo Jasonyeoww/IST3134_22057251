@@ -1,5 +1,5 @@
 ## 🪜 Full Execution Guide (Hadoop MapReduce Approach)
-
+This section outlines how we executed the MapReduce workflow on AWS using Hadoop Streaming.
 ### 1️⃣ Dataset Preparation
 The cleaned dataset all_cleaned_flights.csv was downloaded from Dropbox (preprocessed from the original Kaggle dataset):
 ```bash
