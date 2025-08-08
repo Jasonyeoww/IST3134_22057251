@@ -1,5 +1,5 @@
 ## 🪜 Full Execution Guide (Apache Spark Approach)
-
+As an alternative to the MapReduce pipeline, we implemented the same logic using Apache Spark’s DataFrame API. This approach required fewer lines of code and provided in-memory processing advantages.
 ### 1️⃣ Import Required Libraries
 ```bash
 from pyspark.sql.functions import col, when, count, sum as spark_sum, round
