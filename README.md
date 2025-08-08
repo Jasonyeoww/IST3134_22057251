@@ -6,150 +6,45 @@ This project analyzes and ranks U.S. domestic airlines based on their on-time de
 
 ## 📁 Files in this Repo
 
-- `mapper.py`: Python mapper script
-- `reducer.py`: Python reducer script
-- `README.md`: Project overview and full execution instructions
+- `README.md`: Project overview
+- `01_preprocess_chunks.py`: Script to clean and split the raw Kaggle dataset into chunks
+- `02_merge_chunks.py`: Script to merge cleaned chunks into a single CSV file
+- `MapReduce Approach.md`: Full execution guide and explanation of the Hadoop MapReduce implementation
+- `Non-MapReduce Approach.md`: Full execution guide and explanation of the Apache Spark (non-MapReduce) implementation
 
 ---
 
 ## 📦 Dataset
 
-Due to GitHub's 25MB file limit, the cleaned dataset is hosted on Dropbox:
+This project uses flight performance data sourced from Kaggle:
 
-🔗 [Download all_cleaned_flights.csv (Dropbox)](https://www.dropbox.com/scl/fi/eqs9azgjepvb96tqua60q/all_cleaned_flights.csv?rlkey=kmhvlm4duc5k1req4vhqxk6hf&st=ypt0k7fn&dl=1)
+🔗 [Flight Delay Dataset 2018–2022 (Kaggle)](https://www.kaggle.com/datasets/robikscube/flight-delay-dataset-20182022?select=Combined_Flights_2022.csv)
+
+- **Original File Name**: `Combined_Flights_2022.csv`
+- **File Size**: ~1.42 GB
+- **Total Records**: ~4.08 million rows
+
+Due to GitHub's 25MB file size limit, the cleaned dataset used in this project has been hosted externally:
+
+🔗 [Download `all_cleaned_flights.csv` (Dropbox)](https://www.dropbox.com/scl/fi/eqs9azgjepvb96tqua60q/all_cleaned_flights.csv?rlkey=kmhvlm4duc5k1req4vhqxk6hf&st=ypt0k7fn&dl=1)
+
+The cleaned version contains only the relevant columns used for analysis (e.g., cancellation status, delay indicator, airline name).
+
 
 ---
 
-## 🪜 Full Execution Guide (Hadoop MapReduce Approach)
 
-### 1️⃣ Download the dataset on EC2
+## 🧹 Data Preprocessing Scripts
 
-```bash
-cd ~
-wget "https://www.dropbox.com/scl/fi/eqs9azgjepvb96tqua60q/all_cleaned_flights.csv?rlkey=kmhvlm4duc5k1req4vhqxk6hf&st=ypt0k7fn&dl=1" -O all_cleaned_flights.csv
-```
+To generate the cleaned dataset (`all_cleaned_flights.csv`), we used the following Python scripts:
 
-### 2️⃣ Upload to HDFS
-```bash
-hdfs dfs -rm -r /user/hadoop/flightdata
-hdfs dfs -mkdir -p /user/hadoop/flightdata
-hdfs dfs -put all_cleaned_flights.csv /user/hadoop/flightdata/
-```
+1. **`01_preprocess_chunks.py`**  
+   - Reads the raw Kaggle file (`Combined_Flights_2022.csv`)
+   - Keeps relevant columns only: `Cancelled`, `DepDelayMinutes`, `Marketing_Airline_Network`, `DepDel15`
+   - Maps airline codes to full names
+   - Splits into chunks (100,000 rows per file) and drops rows with missing or unmapped values
 
-### 3️⃣ Save the Mapper and Reducer Scripts
-mapper.py
-```bash
-#!/usr/bin/env python3
-import sys
-import csv
+2. **`02_merge_chunks.py`**  
+   - Merges all chunked CSVs (`cleaned_chunk_*.csv`) into one final cleaned dataset: `all_cleaned_flights.csv`
 
-reader = csv.reader(sys.stdin)
-for row in reader:
-    try:
-        if row[0] == "Cancelled":
-            continue
-        cancelled = row[0].strip().lower() == "true"
-        delay_flag = float(row[3]) >= 1.0
-        airline_name = row[4].strip()
-        if not cancelled:
-            print(f"{airline_name}\t1\t{int(delay_flag)}")
-    except:
-        continue
-```
-reducer.py
-```bash
-#!/usr/bin/env python3
-import sys
-
-current_airline = None
-total_flights = 0
-total_delayed = 0
-
-for line in sys.stdin:
-    line = line.strip()
-    airline, flight, delay = line.split("\t")
-    flight = int(flight)
-    delay = int(delay)
-
-    if current_airline and airline != current_airline:
-        delay_rate = (total_delayed / total_flights) * 100
-        print(f'"{current_airline}"\t{total_flights}\t{total_delayed}\t{delay_rate:.2f}')
-        total_flights = 0
-        total_delayed = 0
-
-    current_airline = airline
-    total_flights += flight
-    total_delayed += delay
-
-if current_airline:
-    delay_rate = (total_delayed / total_flights) * 100
-    print(f'"{current_airline}"\t{total_flights}\t{total_delayed}\t{delay_rate:.2f}')
-```
-Make them executable:
-```bash
-chmod +x mapper.py reducer.py
-```
-### 4️⃣ Run the Hadoop Streaming Job
-Remove any old output:
-```bash
-hdfs dfs -rm -r /user/hadoop/output_ontime
-```
-Then run the job:
-```bash
-hadoop jar /home/hadoop/hadoop-3.3.6/share/hadoop/tools/lib/hadoop-streaming-3.3.6.jar \
-  -input /user/hadoop/flightdata/all_cleaned_flights.csv \
-  -output /user/hadoop/output_ontime \
-  -mapper ./mapper.py \
-  -reducer ./reducer.py \
-  -file mapper.py \
-  -file reducer.py
-```
-
-### 5️⃣ View the Final Results (Sorted)
-```bash
-hdfs dfs -cat /user/hadoop/output_ontime/part-00000 | sort -t $'\t' -k4 -n
-```
 ---
-
-## 🪜 Full Execution Guide (Apache Spark Approach)
-
-### 1️⃣ Import Required Libraries
-```bash
-from pyspark.sql.functions import col, when, count, sum as spark_sum, round
-```
-
-### 2️⃣ Load Dataset from HDFS
-```bash
-df = spark.read.csv("hdfs:///user/hadoop/flightdata/all_cleaned_flights.csv", header=True, inferSchema=True)
-```
-
-### 3️⃣ Filter Out Cancelled Flights
-```bash
-df_filtered = df.filter(col("Cancelled") != 1)
-```
-
-### 4️⃣ Create Delay Flag Column
-```bash
-df_flagged = df_filtered.withColumn("delay_flag", when(col("DepDel15") == 1, 1).otherwise(0))
-```
-
-### 5️⃣ Aggregate Delay Stats by Airline
-```bash
-agg_df = df_flagged.groupBy("Airline_Name").agg(
-    count("*").alias("total_flights"),
-    spark_sum("delay_flag").alias("delayed_flights")
-)
-```
-
-### 6️⃣ Calculate Delay Percentage and Sort
-```bash
-final_df = agg_df.withColumn("delay_percentage",
-                             round((col("delayed_flights") / col("total_flights")) * 100, 2)) \
-                 .orderBy("delay_percentage")
-```
-
-### 7️⃣ Show Final Results
-```bash
-final_df.select("Airline_Name", "total_flights", "delayed_flights", "delay_percentage") \
-    .show(truncate=False)
-```
